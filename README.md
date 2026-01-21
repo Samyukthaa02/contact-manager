@@ -1,6 +1,6 @@
 # Contact Manager (Java 8 sample)
 
-A minimal console contact manager implemented using Java 8 idioms intentionally chosen to show opportunities for upgrading to Java 21.
+A minimal console contact manager implemented using Java 8.
 
 How to build:
 - Requires JDK 8 and Maven.
