@@ -28,26 +28,22 @@ public class Main {
         final ContactService service = new ContactService(repo);
 
         // Background saver thread (demonstration). In Java 21 you'd use virtual threads / scheduled executor improvements.
-        Thread background = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Thread.sleep(10_000);
-                        // simple heartbeat: load count and print
-                        List<Contact> list = repo.findAll();
-                        System.out.println("[Background] Stored contacts: " + list.size());
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        System.err.println("[Background] Error: " + e.getMessage());
-                    }
+        Thread background = Thread.startVirtualThread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(10_000);
+                    // simple heartbeat: load count and print
+                    List<Contact> list = repo.findAll();
+                    System.out.println("[Background] Stored contacts: " + list.size());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    System.err.println("[Background] Error: " + e.getMessage());
                 }
             }
         });
         background.setDaemon(true);
-        background.start();
 
         Scanner scanner = new Scanner(System.in);
         printMenu();
@@ -68,7 +64,7 @@ public class Main {
                         System.out.println("(no contacts)");
                     } else {
                         for (Contact c : all) {
-                            System.out.println(c.getId() + ": " + c.getName() + " <" + c.getEmail() + "> added:" + c.getCreatedAt());
+                            System.out.println(c.id() + ": " + c.name() + " <" + c.email() + "> added:" + c.createdAt());
                         }
                     }
                 } else if (cmd.startsWith("add")) {
@@ -87,13 +83,11 @@ public class Main {
                     String payload = line.substring(4).trim();
                     int id = Integer.parseInt(payload);
                     Optional<Contact> opt = service.findById(id);
-                    // Java 8 style Optional handling
-                    if (opt.isPresent()) {
-                        Contact c = opt.get();
-                        System.out.println(c);
-                    } else {
-                        System.out.println("Not found: " + id);
-                    }
+                    // Java 21 style Optional handling
+                    opt.ifPresentOrElse(
+                        c -> System.out.println(c),
+                        () -> System.out.println("Not found: " + id)
+                    );
                 } else if (cmd.startsWith("delete")) {
                     String payload = line.substring(6).trim();
                     int id = Integer.parseInt(payload);
