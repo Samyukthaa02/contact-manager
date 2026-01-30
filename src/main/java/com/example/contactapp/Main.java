@@ -7,6 +7,7 @@ import com.example.contactapp.service.ContactService;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.Executors; // For Virtual Threads
 
 /**
  * Simple console application.
@@ -27,27 +28,28 @@ public class Main {
         final ContactRepository repo = new ContactRepository(STORAGE);
         final ContactService service = new ContactService(repo);
 
-        // Background saver thread (demonstration). In Java 21 you'd use virtual threads / scheduled executor improvements.
-        Thread background = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Thread.sleep(10_000);
-                        // simple heartbeat: load count and print
-                        List<Contact> list = repo.findAll();
-                        System.out.println("[Background] Stored contacts: " + list.size());
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        System.err.println("[Background] Error: " + e.getMessage());
-                    }
+        // Background saver thread using Virtual Threads (Java 21 style)
+        // Using a single virtual thread for a long-running background task.
+        // For more complex scenarios, Executors.newVirtualThreadPerTaskExecutor() or StructuredTaskScope could be used.
+        Thread background = Thread.startVirtualThread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(10_000);
+                    // simple heartbeat: load count and print
+                    List<Contact> list = repo.findAll();
+                    System.out.println("[Background] Stored contacts: " + list.size());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    System.err.println("[Background] Error: " + e.getMessage());
                 }
             }
         });
-        background.setDaemon(true);
-        background.start();
+        // Virtual threads are daemon by default, so setDaemon(true) is not strictly needed but doesn't hurt.
+        // background.setDaemon(true); // Redundant for virtual threads managed this way.
+        // background.start() is implicitly handled by Thread.startVirtualThread().
+
 
         Scanner scanner = new Scanner(System.in);
         printMenu();
@@ -87,13 +89,11 @@ public class Main {
                     String payload = line.substring(4).trim();
                     int id = Integer.parseInt(payload);
                     Optional<Contact> opt = service.findById(id);
-                    // Java 8 style Optional handling
-                    if (opt.isPresent()) {
-                        Contact c = opt.get();
-                        System.out.println(c);
-                    } else {
-                        System.out.println("Not found: " + id);
-                    }
+                    // Java 21 style Optional handling
+                    opt.ifPresentOrElse(
+                        c -> System.out.println(c),
+                        () -> System.out.println("Not found: " + id)
+                    );
                 } else if (cmd.startsWith("delete")) {
                     String payload = line.substring(6).trim();
                     int id = Integer.parseInt(payload);
@@ -116,14 +116,15 @@ public class Main {
     }
 
     private static void printMenu() {
-        System.out.println("Contact Manager (Java 8 demo)");
-        System.out.println("Commands:");
-        System.out.println("  list                - list contacts");
-        System.out.println("  add Name, email     - add contact");
-        System.out.println("  find <id>           - find contact by id");
-        System.out.println("  delete <id>         - delete contact by id");
-        System.out.println("  m|menu              - show this menu");
-        System.out.println("  q|quit|exit         - exit");
-        System.out.println();
+        System.out.println("""
+            Contact Manager (Java 21 demo)
+            Commands:
+              list                - list contacts
+              add Name, email     - add contact
+              find <id>           - find contact by id
+              delete <id>         - delete contact by id
+              m|menu              - show this menu
+              q|quit|exit         - exit
+            """);
     }
 }
