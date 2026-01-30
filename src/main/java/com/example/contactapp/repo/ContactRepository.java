@@ -12,10 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * File-backed repository storing contacts as CSV.
- * Uses Java 8 APIs (Files, Paths, try-with-resources).
- */
+
 public class ContactRepository {
     private final Path file;
 
@@ -111,9 +108,7 @@ public class ContactRepository {
         }
     }
 
-    /**
-     * Convenience to add a new contact with id generation and createdAt now.
-     */
+  
     public synchronized Contact addNew(String name, String email) {
         int id = nextId();
         Contact c = new Contact(id, name, email, LocalDateTime.now());
