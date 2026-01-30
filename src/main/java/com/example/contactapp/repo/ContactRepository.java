@@ -14,7 +14,7 @@ import java.util.Optional;
 
 /**
  * File-backed repository storing contacts as CSV.
- * Uses Java 8 APIs (Files, Paths, try-with-resources).
+ * Uses Java 8 APIs (Files, Paths, try-with-resources), adapted for Java 21 Contact record.
  */
 public class ContactRepository {
     private final Path file;
@@ -52,7 +52,7 @@ public class ContactRepository {
     public synchronized Optional<Contact> findById(int id) {
         List<Contact> all = findAll();
         for (Contact c : all) {
-            if (c.getId() == id) {
+            if (c.id() == id) { // Changed from c.getId()
                 return Optional.of(c);
             }
         }
@@ -63,7 +63,7 @@ public class ContactRepository {
         List<Contact> all = findAll();
         boolean replaced = false;
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == contact.getId()) {
+            if (all.get(i).id() == contact.id()) { // Changed from all.get(i).getId()
                 all.set(i, contact);
                 replaced = true;
                 break;
@@ -79,7 +79,7 @@ public class ContactRepository {
         List<Contact> all = findAll();
         boolean removed = false;
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == id) {
+            if (all.get(i).id() == id) { // Changed from all.get(i).getId()
                 all.remove(i);
                 removed = true;
                 break;
@@ -94,7 +94,7 @@ public class ContactRepository {
     public synchronized int nextId() {
         int max = 0;
         for (Contact c : findAll()) {
-            if (c.getId() > max) max = c.getId();
+            if (c.id() > max) max = c.id(); // Changed from c.getId()
         }
         return max + 1;
     }
