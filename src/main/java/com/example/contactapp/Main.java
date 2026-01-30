@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
-
 public class Main {
     private static final String STORAGE = "data/contacts.csv";
 
@@ -16,27 +15,24 @@ public class Main {
         final ContactRepository repo = new ContactRepository(STORAGE);
         final ContactService service = new ContactService(repo);
 
-        // Background saver thread (demonstration). In Java 21 you'd use virtual threads / scheduled executor improvements.
-        Thread background = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Thread.sleep(10_000);
-                        // simple heartbeat: load count and print
-                        List<Contact> list = repo.findAll();
-                        System.out.println("[Background] Stored contacts: " + list.size());
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        System.err.println("[Background] Error: " + e.getMessage());
-                    }
+        // Using Virtual Threads for the background saver
+        // In Java 21, Executors.newVirtualThreadPerTaskExecutor() provides a simple way to create virtual threads.
+        // For a single long-running task, Thread.startVirtualThread is even more direct.
+        Thread background = Thread.startVirtualThread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(10_000);
+                    // simple heartbeat: load count and print
+                    List<Contact> list = repo.findAll();
+                    System.out.println("[Background] Stored contacts: " + list.size());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    System.err.println("[Background] Error: " + e.getMessage());
                 }
             }
         });
-        background.setDaemon(true);
-        background.start();
 
         Scanner scanner = new Scanner(System.in);
         printMenu();
@@ -46,66 +42,71 @@ public class Main {
             if (line == null) break;
             String cmd = line.trim().toLowerCase();
             try {
-                if ("q".equals(cmd) || "exit".equals(cmd) || "quit".equals(cmd)) {
-                    System.out.println("Exiting...");
-                    break;
-                } else if ("m".equals(cmd) || "menu".equals(cmd)) {
-                    printMenu();
-                } else if ("list".equals(cmd)) {
-                    List<Contact> all = service.listContactsSortedByName();
-                    if (all.isEmpty()) {
-                        System.out.println("(no contacts)");
-                    } else {
-                        for (Contact c : all) {
-                            System.out.println(c.getId() + ": " + c.getName() + " <" + c.getEmail() + "> added:" + c.getCreatedAt());
+                // Using switch expression for command handling
+                switch (cmd) {
+                    case "q", "exit", "quit" -> {
+                        System.out.println("Exiting...");
+                        // Stop background thread politely
+                        background.interrupt();
+                        try {
+                            background.join(1000);
+                        } catch (InterruptedException ignored) { /* ignore */ }
+                        scanner.close();
+                        return; // Exit main method
+                    }
+                    case "m", "menu" -> printMenu();
+                    case "list" -> {
+                        List<Contact> all = service.listContactsSortedByName();
+                        if (all.isEmpty()) {
+                            System.out.println("(no contacts)");
+                        } else {
+                            // Enhanced for loop with implicit type for Contact record
+                            for (var c : all) { // 'var' can be used with records
+                                System.out.println(c.id() + ": " + c.name() + " <" + c.email() + "> added:" + c.createdAt());
+                            }
                         }
                     }
-                } else if (cmd.startsWith("add")) {
-                    // format: add Name, email@example.com
-                    String payload = line.substring(3).trim();
-                    String[] parts = payload.split(",", 2);
-                    if (parts.length < 2) {
-                        System.out.println("Usage: add Name, email@example.com");
-                    } else {
-                        String name = parts[0].trim();
-                        String email = parts[1].trim();
-                        Contact c = service.addContact(name, email);
-                        System.out.println("Added: " + c);
+                    case String s when s.startsWith("add") -> {
+                        String payload = line.substring(3).trim();
+                        String[] parts = payload.split(",", 2);
+                        if (parts.length < 2) {
+                            System.out.println("Usage: add Name, email@example.com");
+                        } else {
+                            String name = parts[0].trim();
+                            String email = parts[1].trim();
+                            Contact c = service.addContact(name, email);
+                            System.out.println("Added: " + c);
+                        }
                     }
-                } else if (cmd.startsWith("find")) {
-                    String payload = line.substring(4).trim();
-                    int id = Integer.parseInt(payload);
-                    Optional<Contact> opt = service.findById(id);
-                    // Java 8 style Optional handling
-                    if (opt.isPresent()) {
-                        Contact c = opt.get();
-                        System.out.println(c);
-                    } else {
-                        System.out.println("Not found: " + id);
+                    case String s when s.startsWith("find") -> {
+                        String payload = line.substring(4).trim();
+                        int id = Integer.parseInt(payload);
+                        Optional<Contact> opt = service.findById(id);
+                        // Using Optional.ifPresentOrElse for modern Optional handling
+                        opt.ifPresentOrElse(
+                                System.out::println,
+                                () -> System.out.println("Not found: " + id)
+                        );
                     }
-                } else if (cmd.startsWith("delete")) {
-                    String payload = line.substring(6).trim();
-                    int id = Integer.parseInt(payload);
-                    boolean ok = service.delete(id);
-                    System.out.println(ok ? ("Deleted " + id) : ("Not found " + id));
-                } else {
-                    System.out.println("Unknown command. Type 'm' for menu.");
+                    case String s when s.startsWith("delete") -> {
+                        String payload = line.substring(6).trim();
+                        int id = Integer.parseInt(payload);
+                        boolean ok = service.delete(id);
+                        System.out.println(ok ? ("Deleted " + id) : ("Not found " + id));
+                    }
+                    default -> System.out.println("Unknown command. Type 'm' for menu.");
                 }
-            } catch (Exception e) {
+            } catch (NumberFormatException e) {
+                 System.err.println("Error: Invalid ID format. " + e.getMessage());
+            }
+            catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }
-
-        // Stop background thread politely
-        background.interrupt();
-        try {
-            background.join(1000);
-        } catch (InterruptedException ignored) { }
-        scanner.close();
     }
 
     private static void printMenu() {
-        System.out.println("Contact Manager (Java 8 demo)");
+        System.out.println("Contact Manager (Java 21)"); // Updated version in menu
         System.out.println("Commands:");
         System.out.println("  list                - list contacts");
         System.out.println("  add Name, email     - add contact");
