@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Service layer demonstrating Java 8-era idioms.
- * - Uses anonymous Comparator class
- * - Uses Optional with isPresent/get (could be improved with functional style)
+ * Service layer demonstrating Java 8-era idioms, now updated for Java 21.
+ * - Uses modern Comparator.
+ * - Adapts to Contact record.
  */
 public class ContactService {
     private final ContactRepository repo;
@@ -27,16 +27,8 @@ public class ContactService {
 
     public List<Contact> listContactsSortedByName() {
         List<Contact> all = new ArrayList<>(repo.findAll());
-        // Java 8 style anonymous Comparator. In Java 21 you'd likely use Comparator.comparing(Contact::getName)
-        Collections.sort(all, new Comparator<Contact>() {
-            @Override
-            public int compare(Contact o1, Contact o2) {
-                if (o1.getName() == null && o2.getName() == null) return 0;
-                if (o1.getName() == null) return -1;
-                if (o2.getName() == null) return 1;
-                return o1.getName().compareToIgnoreCase(o2.getName());
-            }
-        });
+        // Java 21 style using Comparator.comparing
+        Collections.sort(all, Comparator.comparing(Contact::name, Comparator.nullsFirst(String::compareToIgnoreCase)));
         return all;
     }
 
