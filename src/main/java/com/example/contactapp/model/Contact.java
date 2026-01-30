@@ -3,60 +3,23 @@ package com.example.contactapp.model;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
+import java.util.Objects; // Keep if you have custom equals/hashCode beyond record's default
 
 /**
- * Plain old Java object (POJO) for Contact.
- * In Java 21 this could be a record: `public record Contact(int id, String name, String email, LocalDateTime createdAt) { }`
+ * Record for Contact, replacing the old POJO.
  */
-public class Contact implements Serializable {
-    private int id;
-    private String name;
-    private String email;
-    private LocalDateTime createdAt;
+public record Contact(int id, String name, String email, LocalDateTime createdAt) implements Serializable {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    public Contact() {
-    }
-
-    public Contact(int id, String name, String email, LocalDateTime createdAt) {
-        this.id = id;
-        this.name = name;
-        this.email = email;
-        this.createdAt = createdAt;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    } 
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    } 
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    } 
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    // Compact constructor (optional, for validation or normalization)
+    public Contact {
+        Objects.requireNonNull(name, "Name cannot be null");
+        Objects.requireNonNull(email, "Email cannot be null");
+        Objects.requireNonNull(createdAt, "CreatedAt cannot be null");
+        if (id < 0) {
+            throw new IllegalArgumentException("ID cannot be negative");
+        }
     }
 
     public String toCsvLine() {
@@ -89,26 +52,7 @@ public class Contact implements Serializable {
         return s.replace("\\n", "\n").replace("\\,", ",");
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Contact contact = (Contact) o;
-        return id == contact.id &&
-                Objects.equals(name, contact.name) &&
-                Objects.equals(email, contact.email) &&
-                Objects.equals(createdAt, contact.createdAt);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, email, createdAt);
-    }
-
-    @Override
-    public String toString() {
-        return "Contact{id=" + id + ", name='" + name + '\'' + ", email='" + email + '\'' +
-                ", createdAt=" + createdAt + '}';
-    }
+    // Records automatically provide equals(), hashCode(), and toString() based on their components.
+    // So the explicit overrides are no longer needed.
+    // Getters are also automatically generated (e.g., id(), name(), etc.)
 }
