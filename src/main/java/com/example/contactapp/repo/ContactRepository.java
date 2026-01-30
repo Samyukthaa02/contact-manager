@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
+import java.util.stream.Collectors; // Added for Collectors
 
 public class ContactRepository {
     private final Path file;
@@ -47,20 +47,17 @@ public class ContactRepository {
     }
 
     public synchronized Optional<Contact> findById(int id) {
-        List<Contact> all = findAll();
-        for (Contact c : all) {
-            if (c.getId() == id) {
-                return Optional.of(c);
-            }
-        }
-        return Optional.empty();
+        return findAll().stream()
+                .filter(contact -> contact.id() == id) // Using record accessor contact.id()
+                .findFirst();
     }
 
     public synchronized void save(Contact contact) {
         List<Contact> all = findAll();
+        // Check if contact already exists and update, otherwise add
         boolean replaced = false;
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == contact.getId()) {
+            if (all.get(i).id() == contact.id()) { // Using record accessor contact.id()
                 all.set(i, contact);
                 replaced = true;
                 break;
@@ -73,27 +70,23 @@ public class ContactRepository {
     }
 
     public synchronized boolean delete(int id) {
-        List<Contact> all = findAll();
-        boolean removed = false;
-        for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == id) {
-                all.remove(i);
-                removed = true;
-                break;
-            }
+        List<Contact> initialContacts = findAll();
+        List<Contact> remainingContacts = initialContacts.stream()
+                .filter(contact -> contact.id() != id) // Using record accessor contact.id()
+                .collect(Collectors.toList());
+
+        if (remainingContacts.size() < initialContacts.size()) {
+            writeAll(remainingContacts);
+            return true;
         }
-        if (removed) {
-            writeAll(all);
-        }
-        return removed;
+        return false;
     }
 
     public synchronized int nextId() {
-        int max = 0;
-        for (Contact c : findAll()) {
-            if (c.getId() > max) max = c.getId();
-        }
-        return max + 1;
+        return findAll().stream()
+                .mapToInt(Contact::id) // Using record accessor Contact::id
+                .max()
+                .orElse(0) + 1;
     }
 
     private void writeAll(List<Contact> all) {
@@ -108,10 +101,11 @@ public class ContactRepository {
         }
     }
 
-  
+
     public synchronized Contact addNew(String name, String email) {
         int id = nextId();
-        Contact c = new Contact(id, name, email, LocalDateTime.now());
+        // The Contact record constructor automatically handles null/trim for name and email, and sets createdAt if null
+        Contact c = new Contact(id, name, email, null);
         save(c);
         return c;
     }
