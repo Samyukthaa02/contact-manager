@@ -8,18 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
-/**
- * Simple console application.
- *
- * Demonstrates:
- * - Scanner-based CLI
- * - Background thread implemented with anonymous Runnable (Java 8 style)
- *
- * Java 21 improvements:
- * - Replace background Thread with virtual threads / structured concurrency
- * - Replace Contact POJO with record
- * - Pattern matching and simplified Optional handling
- */
+
 public class Main {
     private static final String STORAGE = "data/contacts.csv";
 
