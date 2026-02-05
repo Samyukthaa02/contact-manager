@@ -3,15 +3,14 @@ package com.example.contactapp.service;
 import com.example.contactapp.model.Contact;
 import com.example.contactapp.repo.ContactRepository;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Service layer demonstrating Java 8-era idioms.
- * - Uses anonymous Comparator class
+ * - Uses anonymous Comparator class (replaced with modern Comparator.comparing)
  * - Uses Optional with isPresent/get (could be improved with functional style)
  */
 public class ContactService {
@@ -26,18 +25,9 @@ public class ContactService {
     }
 
     public List<Contact> listContactsSortedByName() {
-        List<Contact> all = new ArrayList<>(repo.findAll());
-        // Java 8 style anonymous Comparator. In Java 21 you'd likely use Comparator.comparing(Contact::getName)
-        Collections.sort(all, new Comparator<Contact>() {
-            @Override
-            public int compare(Contact o1, Contact o2) {
-                if (o1.getName() == null && o2.getName() == null) return 0;
-                if (o1.getName() == null) return -1;
-                if (o2.getName() == null) return 1;
-                return o1.getName().compareToIgnoreCase(o2.getName());
-            }
-        });
-        return all;
+        return repo.findAll().stream()
+                .sorted(Comparator.comparing(Contact::name, Comparator.nullsFirst(String::compareToIgnoreCase)))
+                .collect(Collectors.toUnmodifiableList()); // Using toUnmodifiableList for immutable result
     }
 
     public Optional<Contact> findById(int id) {
