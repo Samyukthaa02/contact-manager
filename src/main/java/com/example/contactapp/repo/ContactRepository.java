@@ -1,6 +1,7 @@
 package com.example.contactapp.repo;
 
 import com.example.contactapp.model.Contact;
+import org.springframework.stereotype.Repository;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -11,13 +12,21 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
-
+@Repository
 public class ContactRepository {
     private final Path file;
+    private final AtomicInteger nextId = new AtomicInteger(0);
 
-    public ContactRepository(String filePath) {
-        this.file = Paths.get(filePath);
+    public ContactRepository() {
+        this.file = Paths.get("data/contacts.csv");
+        initializeStorage();
+        loadNextId();
+    }
+
+    private void initializeStorage() {
         try {
             if (!Files.exists(file.getParent())) {
                 Files.createDirectories(file.getParent());
@@ -30,37 +39,31 @@ public class ContactRepository {
         }
     }
 
+    private void loadNextId() {
+        nextId.set(findAll().stream().mapToInt(Contact::id).max().orElse(0) + 1);
+    }
+
     public synchronized List<Contact> findAll() {
-        List<Contact> out = new ArrayList<>();
-        try (BufferedReader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            String line;
-            while ((line = r.readLine()) != null) {
-                Contact c = Contact.fromCsvLine(line);
-                if (c != null) {
-                    out.add(c);
-                }
-            }
+        try (var lines = Files.lines(file, StandardCharsets.UTF_8)) {
+            return lines.map(Contact::fromCsvLine)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toCollection(ArrayList::new));
         } catch (IOException e) {
             throw new RuntimeException("Error reading contacts", e);
         }
-        return out;
     }
 
     public synchronized Optional<Contact> findById(int id) {
-        List<Contact> all = findAll();
-        for (Contact c : all) {
-            if (c.getId() == id) {
-                return Optional.of(c);
-            }
-        }
-        return Optional.empty();
+        return findAll().stream()
+                .filter(c -> c.id() == id)
+                .findFirst();
     }
 
     public synchronized void save(Contact contact) {
         List<Contact> all = findAll();
         boolean replaced = false;
         for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == contact.getId()) {
+            if (all.get(i).id() == contact.id()) {
                 all.set(i, contact);
                 replaced = true;
                 break;
@@ -70,30 +73,21 @@ public class ContactRepository {
             all.add(contact);
         }
         writeAll(all);
+        loadNextId(); // Recalculate nextId after save
     }
 
     public synchronized boolean delete(int id) {
         List<Contact> all = findAll();
-        boolean removed = false;
-        for (int i = 0; i < all.size(); i++) {
-            if (all.get(i).getId() == id) {
-                all.remove(i);
-                removed = true;
-                break;
-            }
-        }
+        boolean removed = all.removeIf(c -> c.id() == id);
         if (removed) {
             writeAll(all);
+            loadNextId(); // Recalculate nextId after delete
         }
         return removed;
     }
 
     public synchronized int nextId() {
-        int max = 0;
-        for (Contact c : findAll()) {
-            if (c.getId() > max) max = c.getId();
-        }
-        return max + 1;
+        return nextId.getAndIncrement();
     }
 
     private void writeAll(List<Contact> all) {
@@ -108,7 +102,6 @@ public class ContactRepository {
         }
     }
 
-  
     public synchronized Contact addNew(String name, String email) {
         int id = nextId();
         Contact c = new Contact(id, name, email, LocalDateTime.now());
